@@ -4,7 +4,6 @@ import java.nio.file.Paths;
 public class Utility {
     private static OS currentOS;
     private static Path execDir;
-    private static Path tmpDir;
     private static Path modDir;
     private static Path contentDir;
 
@@ -58,26 +57,6 @@ public class Utility {
             }
         }
         return execDir;
-    }
-
-    public static Path getTmpDir() {
-        // TODO: This, but properly
-        if (tmpDir == null) {
-            switch(getCurrentOS()) {
-                case WIN:
-                    tmpDir = Paths.get("C:\\temp\\");
-                    break;
-                case MACOS:
-                case LINUX:
-                    tmpDir = Paths.get("/tmp/");
-                    break;
-                default:
-                    // TODO: Proper error handling
-                    System.err.println("Unknown OS. How did you get to this error?");
-                    System.exit(-1);
-            }
-        }
-        return tmpDir;
     }
 
     public static void writeSettingsFile() {

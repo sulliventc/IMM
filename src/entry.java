@@ -2,7 +2,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-public class entry {
+public class Entry {
     public static void main(String args[]) {
         String home = System.getProperty("user.home");
         Path path = Paths.get(home,"/Documents");

@@ -1,4 +1,4 @@
-public class settingsFile {
+public class SettingsFile {
     int os;
     String smapiVersion;
     String installDir;

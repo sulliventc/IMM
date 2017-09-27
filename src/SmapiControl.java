@@ -1,10 +1,15 @@
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
+import com.google.gson.Gson;
+import com.google.gson.stream.JsonReader;
+import jdk.internal.util.xml.impl.Input;
+
+import java.io.*;
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 public class SmapiControl {
-
     // TODO: implement checkSmapiInstall
     private static void checkSmapiInstall() {
 
@@ -16,42 +21,79 @@ public class SmapiControl {
     }
 
     // TODO: implement downloadSmapi
-    public static void downloadSmapi() throws Exception {
-        // download with githup releases API
-        // to System.getProperty("java.io.tmpdir")
-        // possibly return absolute path
-        String url = "https://api.github.com/repos/Pathoschild/SMAPI/releases/latest";
+    // TODO: Deal with github assets. This currently downloads source
+    public static void downloadSmapi(){
+        String url = getGithubResponse().tarball_url;
+        final String filename = "smapi.tar.gz";
 
-        URL obj = new URL(url);
-        HttpURLConnection connection = (HttpURLConnection) obj.openConnection();
+        try {
+            System.out.println(sendGetAndSave(url, filename));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static SmapiResponse getGithubResponse() {
+        final String url = "https://api.github.com/repos/Pathoschild/SMAPI/releases/latest";
+        final String filename = "smapiresp.json";
+        Path responsePath = null;
+        JsonReader jsonReader = null;
+        Gson gson;
+
+        try {
+            responsePath = sendGetAndSave(url, filename);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        gson = new Gson();
+        try {
+            assert responsePath != null;
+            jsonReader = new JsonReader(new FileReader(responsePath.toFile()));
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        assert jsonReader != null;
+        return gson.fromJson(jsonReader, SmapiResponse.class);
+    }
+
+    private static Path sendGetAndSave(String url, String filename) throws IOException {
+        URL urlObj;
+        HttpURLConnection connection;
+        Path savePath;
+        InputStream in;
+        FileOutputStream out;
+        int responseCode;
+        int read;
+        byte[] buffer;
+
+        urlObj = new URL(url);
+        connection = (HttpURLConnection) urlObj.openConnection();
 
         connection.setRequestMethod("GET");
         connection.setRequestProperty("User-Agent", "Iridium Mod Manager");
 
-        int responseCode = connection.getResponseCode();
-        System.out.println("\nSending 'GET' request.");
-        System.out.println("Response code: " + responseCode);
-
-        BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-        String inputLine;
-        StringBuffer response = new StringBuffer();
-
-        while ((inputLine = in.readLine()) != null) {
-            response.append(inputLine);
+        responseCode = connection.getResponseCode();
+        savePath = Paths.get(System.getProperty("java.io.tmpdir"), filename);
+        if (savePath.toFile().exists()) {
+            savePath.toFile().delete();
         }
+
+        in = connection.getInputStream();
+        out = new FileOutputStream(savePath.toFile());
+
+        read = 0;
+        buffer = new byte[32768];
+        while ((read = in.read(buffer)) > 0) {
+            out.write(buffer, 0, read);
+        }
+
+        out.close();
         in.close();
-
-        System.out.println(response.toString());
+        return savePath;
     }
 
-    private static void getGithubResponse() {
-        // TODO: send request currently in downloadSmapi
-        // TODO: Save response file to temp directory
-        // TODO: deserialize with gson to object that holds tarball url and release number; don't really care about the rest.
-        // TODO: return that object
-    }
-
-    public static void installSmapi() {
+    private static void installSmapi() {
         // TODO: unzip SMAPI
         // TODO: copy all files; Mono if *nix, Windows if win
         // TODO: rename .exe if *nix
