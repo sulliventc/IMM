@@ -1,13 +1,15 @@
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
-import jdk.internal.util.xml.impl.Input;
 
 import java.io.*;
+import java.lang.reflect.Type;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 
 public class SmapiControl {
     // TODO: implement checkSmapiInstall
@@ -22,23 +24,61 @@ public class SmapiControl {
 
     // TODO: implement downloadSmapi
     // TODO: Deal with github assets. This currently downloads source
-    public static void downloadSmapi(){
-        String url = getGithubResponse().tarball_url;
-        final String filename = "smapi.tar.gz";
+    private static Path downloadSmapi() {
+        SerializedTypes.SmapiReleaseResponse response = getReleaseResponse();
+        String assetsUrl = response.assets_url;
+        String tag = response.tag_name;
+        String zipUrl = null;
+        Path assetsPath = null;
+        JsonReader jsonReader = null;
+        Path result = null;
+        final String assetsFilename = "immAssets.json";
+        final String zipFilename = "immSmapi.zip";
 
         try {
-            System.out.println(sendGetAndSave(url, filename));
-        } catch (Exception e) {
+            assetsPath = sendGetAndSave(assetsUrl, assetsFilename);
+        } catch (IOException e) {
             e.printStackTrace();
         }
+
+        try {
+            assert assetsPath != null;
+            jsonReader = new JsonReader(new FileReader(assetsPath.toFile()));
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+
+        assert jsonReader != null;
+        Type listType = new TypeToken<ArrayList<SerializedTypes.SmapiAssetResponse>>() {
+        }.getType();
+        List<SerializedTypes.SmapiAssetResponse> assetList = new Gson().fromJson(jsonReader, listType);
+        for (SerializedTypes.SmapiAssetResponse element : assetList) {
+            if (element.name.equals("SMAPI-" + tag + ".zip")) {
+                zipUrl = element.browser_download_url;
+            }
+        }
+
+        if (zipUrl == null || zipUrl.isEmpty()) {
+            // TODO: Proper error handling
+            System.err.println("Couldn't find SMAPI download package.");
+            System.exit(-1);
+        } else {
+            try {
+                result = sendGetAndSave(zipUrl, zipFilename);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return result;
+
     }
 
-    private static SmapiResponse getGithubResponse() {
+    private static SerializedTypes.SmapiReleaseResponse getReleaseResponse() {
         final String url = "https://api.github.com/repos/Pathoschild/SMAPI/releases/latest";
-        final String filename = "smapiresp.json";
+        final String filename = "immSmapiResp.json";
         Path responsePath = null;
         JsonReader jsonReader = null;
-        Gson gson;
 
         try {
             responsePath = sendGetAndSave(url, filename);
@@ -46,7 +86,6 @@ public class SmapiControl {
             e.printStackTrace();
         }
 
-        gson = new Gson();
         try {
             assert responsePath != null;
             jsonReader = new JsonReader(new FileReader(responsePath.toFile()));
@@ -54,7 +93,7 @@ public class SmapiControl {
             e.printStackTrace();
         }
         assert jsonReader != null;
-        return gson.fromJson(jsonReader, SmapiResponse.class);
+        return new Gson().fromJson(jsonReader, SerializedTypes.SmapiReleaseResponse.class);
     }
 
     private static Path sendGetAndSave(String url, String filename) throws IOException {
@@ -74,6 +113,11 @@ public class SmapiControl {
         connection.setRequestProperty("User-Agent", "Iridium Mod Manager");
 
         responseCode = connection.getResponseCode();
+        if (responseCode != 200) {
+            // TODO: Handle bad response
+            System.err.println("Bad server response. Response: " + responseCode + " from address " + url);
+            System.exit(-1);
+        }
         savePath = Paths.get(System.getProperty("java.io.tmpdir"), filename);
         if (savePath.toFile().exists()) {
             savePath.toFile().delete();

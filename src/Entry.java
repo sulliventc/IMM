@@ -16,10 +16,6 @@ public class Entry {
 
         System.out.println(System.getProperty("java.io.tmpdir"));
 
-        try {
-            SmapiControl.downloadSmapi();
-        } catch (Exception e) {
-            System.err.println(e);
-        }
+        //System.out.println(SmapiControl.downloadSmapi().toString());
     }
 }
